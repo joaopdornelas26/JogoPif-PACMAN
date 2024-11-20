@@ -1,55 +1,26 @@
-/**
- * timer.c
- * Created on Aug, 23th 2023
- * Author: Tiago Barros
- * Based on "From C to C++ course - 2002"
-*/
-
 #include "timer.h"
 #include <sys/time.h>
-#include <stdio.h>
+#include <stddef.h> 
 
-static struct timeval timer, now;
-static int delay = -1;
+static struct timeval start;
+static int delay = 0;
 
-void timerInit(int valueMilliSec)
-{
+void timerInit(int valueMilliSec) {
     delay = valueMilliSec;
-    gettimeofday(&timer, NULL);
+    gettimeofday(&start, NULL);
 }
 
-void timerDestroy()
-{
-    delay = -1;
+void timerDestroy() {
+    delay = 0;
 }
 
-void timerUpdateTimer(int valueMilliSec)
-{
-    delay = valueMilliSec;
-    gettimeofday(&timer, NULL);
-}
-
-int getTimeDiff()
-{
+int timerTimeOver() {
+    struct timeval now;
     gettimeofday(&now, NULL);
-    long diff = (((now.tv_sec - timer.tv_sec) * 1000000) + now.tv_usec - timer.tv_usec)/1000;
-    return (int) diff;
-}
-
-int timerTimeOver()
-{
-    int ret = 0;
-
-    if (getTimeDiff() > delay)
-    {
-        ret = 1;
-        gettimeofday(&timer, NULL);
+    int elapsed = (now.tv_sec - start.tv_sec) * 1000 + (now.tv_usec - start.tv_usec) / 1000;
+    if (elapsed > delay) {
+        gettimeofday(&start, NULL);
+        return 1;
     }
-
-    return ret;
-}
-
-void timerPrint()
-{
-    printf("Timer:  %d", getTimeDiff());
+    return 0;
 }

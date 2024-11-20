@@ -3,43 +3,23 @@
 #include "timer.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <time.h>
 
-#define MAP_WIDTH 80
-#define MAP_HEIGHT 19
 #define PACMAN 'P'
-#define WALL '#'
-#define EMPTY ' '
 #define FOOD '.'
-#define SCORES_FILE "scores.txt"
+#define EMPTY ' '
+#define GHOST 'G'
+#define NUM_GHOSTS 3
 
-char map[MAP_HEIGHT][MAP_WIDTH + 1] = {
-    "                                                                                ",
-    "                                                                                ",
-    "  ############################################################################# ",
-    " #   #           #   #                  #    #                         #       #",
-    " #   #   #########   #   ################    #######   #############   #       #",
-    " #   #   #           #   #                           #   #       #      #      #",
-    " #   #   #   #########   #   #########################   #   #   #######       #",
-    " #   #       #           #   #       #                     #   #               #",
-    " #   ###### ##############   ######  ########################   ##########     #",
-    " #           #                                                                 #",
-    " #   ###############   ########   ################   ######   ##########       #",
-    " #   #              #   #     #   #              #   #    #   #                #",
-    " #   ######   #######   ##### #   #   #######     #   #    #   #######   ####  #",
-    " #   #        #             #     #   #     #     #   #             #   #      #",
-    " #   #   ######   ###############     #     #########   #############   ####   #",
-    " #   #   #              #                   #                          #       #",
-    " #   #####   ##############   ###############   ################   #####       #",
-    " #          #                   #                   #                          #",
-    "  ############################################################################# "
+void saveScore(int score);
+
+int pacman_x = 39, pacman_y = 9, food_count = 0;
+int ghost_positions[NUM_GHOSTS][2] = {
+    {10, 10},
+    {20, 5},
+    {30, 15}
 };
 
-int pacman_x = 39;
-int pacman_y = 9;
-int food_count = 0;
-
-// Função para espalhar comidinhas por todo o mapa
 void scatter_food() {
     for (int y = 0; y < MAP_HEIGHT; y++) {
         for (int x = 0; x < MAP_WIDTH; x++) {
@@ -49,101 +29,82 @@ void scatter_food() {
         }
     }
     map[pacman_y][pacman_x] = PACMAN;
-}
-
-// Função para desenhar o mapa
-void draw_map() {
-    system("clear");
-    for (int i = 0; i < MAP_HEIGHT; i++) {
-        for (int j = 0; j < MAP_WIDTH; j++) {
-            screenGotoxy(j, i);
-            printf("%c", map[i][j]);
-        }
+    for (int i = 0; i < NUM_GHOSTS; i++) {
+        map[ghost_positions[i][1]][ghost_positions[i][0]] = GHOST;
     }
 }
 
-// Função para exibir a pontuação
-void display_score() {
-    screenGotoxy(0, MAP_HEIGHT);
-    printf("Score: %d", food_count);
-}
-
-// Função para mover o Pacman e comer as comidinhas
 void move_pacman(int new_x, int new_y) {
-    if (map[new_y][new_x] == EMPTY || map[new_y][new_x] == FOOD) {
-        if (map[new_y][new_x] == FOOD) {
-            food_count++;
-            printf("\a"); // Emite um som ao comer
+    if (map[new_y][new_x] == '#') return;
+    if (map[new_y][new_x] == GHOST) {
+        printf("\nVocê foi pego por um fantasma! Fim de jogo.\n");
+        keyboardDestroy();
+        screenDestroy();
+        saveScore(food_count);
+        exit(0);
+    }
+    if (map[new_y][new_x] == FOOD) food_count++;
+    map[pacman_y][pacman_x] = EMPTY;
+    pacman_x = new_x;
+    pacman_y = new_y;
+    map[pacman_y][pacman_x] = PACMAN;
+    screenDrawMap();
+    printf("\nScore: %d\n", food_count);
+}
+
+void move_ghosts() {
+    int dx[] = {0, 0, -1, 1};
+    int dy[] = {-1, 1, 0, 0};
+    for (int i = 0; i < NUM_GHOSTS; i++) {
+        map[ghost_positions[i][1]][ghost_positions[i][0]] = EMPTY;
+        int direction = rand() % 4;
+        int new_x = ghost_positions[i][0] + dx[direction];
+        int new_y = ghost_positions[i][1] + dy[direction];
+        if (map[new_y][new_x] != '#' && map[new_y][new_x] != PACMAN && map[new_y][new_x] != GHOST) {
+            ghost_positions[i][0] = new_x;
+            ghost_positions[i][1] = new_y;
         }
-        map[pacman_y][pacman_x] = EMPTY;
-        pacman_x = new_x;
-        pacman_y = new_y;
-        map[pacman_y][pacman_x] = PACMAN;
-        draw_map();
-        display_score(); // Atualiza a pontuação na tela
-    }
-}
-
-int compare_scores(const void *a, const void *b) {
-    return (*(int*)b - *(int*)a);
-}
-
-void save_score(int score) {
-    FILE *file = fopen(SCORES_FILE, "a");
-    if (file) {
-        fprintf(file, "%d\n", score);
-        fclose(file);
-    }
-}
-
-void show_top_scores() {
-    int scores[100], count = 0;
-    FILE *file = fopen(SCORES_FILE, "r");
-    if (file) {
-        while (fscanf(file, "%d", &scores[count]) != EOF && count < 100) {
-            count++;
+        map[ghost_positions[i][1]][ghost_positions[i][0]] = GHOST;
+        if (ghost_positions[i][0] == pacman_x && ghost_positions[i][1] == pacman_y) {
+            printf("\nVocê foi pego por um fantasma! Fim de jogo.\n");
+            keyboardDestroy();
+            screenDestroy();
+            saveScore(food_count);
+            exit(0);
         }
-        fclose(file);
     }
-    qsort(scores, count, sizeof(int), compare_scores);
+}
 
-    printf("\nTop 5 Scores:\n");
-    for (int i = 0; i < count && i < 5; i++) {
-        printf("%d. %d\n", i + 1, scores[i]);
+void saveScore(int score) {
+    FILE *file = fopen("score.txt", "w");
+    if (file == NULL) {
+        printf("Erro ao abrir o arquivo para salvar o score.\n");
+        return;
     }
+    fprintf(file, "Score: %d\n", score);
+    fclose(file);
+    printf("Score salvo em 'score.txt'!\n");
 }
 
 int main() {
-    int key = 0;
-
-    screenInit(1);
+    screenInit(0);
     keyboardInit();
-    timerInit(50);
-
     scatter_food();
-    draw_map();
-    display_score();
-    screenUpdate();
-
-    while (key != 27) {
-        if (keyhit()) { 
-            key = readch();
-            switch (key) {
-                case 'w': move_pacman(pacman_x, pacman_y - 1); break;
-                case 's': move_pacman(pacman_x, pacman_y + 1); break;
-                case 'a': move_pacman(pacman_x - 1, pacman_y); break;
-                case 'd': move_pacman(pacman_x + 1, pacman_y); break;
-            }
-            screenUpdate();
+    screenDrawMap();
+    srand(time(NULL));
+    int ch;
+    while ((ch = readch()) != 27) {
+        switch (ch) {
+            case 'w': move_pacman(pacman_x, pacman_y - 1); break;
+            case 's': move_pacman(pacman_x, pacman_y + 1); break;
+            case 'a': move_pacman(pacman_x - 1, pacman_y); break;
+            case 'd': move_pacman(pacman_x + 1, pacman_y); break;
         }
+        move_ghosts();
+        screenDrawMap();
     }
-
-    save_score(food_count);
-    show_top_scores();
-
+    saveScore(food_count);
     keyboardDestroy();
     screenDestroy();
-    timerDestroy();
-
     return 0;
 }
