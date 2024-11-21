@@ -1,3 +1,5 @@
+DESCONSIDERE O ARQUIVO PACMAN
+
 compilar:
 
 sudo apt update
